@@ -11,3 +11,10 @@ PyYAML==6.0
 scipy==1.11.2
 seaborn==0.12.2
 tqdm==4.66.1
+
+streamlit
+streamlit-webrtc
+ultralytics
+opencv-python-headless
+av
+numpy   
