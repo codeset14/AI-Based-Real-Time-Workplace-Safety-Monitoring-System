@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Workplace Safety Monitor</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h1>🚧 AI Workplace Safety Monitoring</h1>
+
+<div class="container">
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img id="output" />
+</div>
+
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="stopCamera()">Stop Camera</button>
+
+<div id="alert-box"></div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

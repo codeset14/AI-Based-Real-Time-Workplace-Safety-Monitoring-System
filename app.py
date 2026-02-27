@@ -1,80 +1,66 @@
-import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
-import av
-import cv2
-import os
-from datetime import datetime
+from flask import Flask, render_template, request, jsonify
 from ultralytics import YOLO
+import cv2
+import numpy as np
+import os
+import base64
+from datetime import datetime
 
-st.set_page_config(page_title="AI Workplace Safety Monitor", layout="wide")
-st.title("🚧 AI-Based Real-Time Workplace Safety Monitoring")
+app = Flask(__name__)
 
-@st.cache_resource
-def load_model():
-    return YOLO("best.pt")
+# Load YOLO model once
+model = YOLO("best.pt")
 
-model = load_model()
-
-ALERT_FOLDER = "workplace"
+# Folder for violation images
+ALERT_FOLDER = "result"
 os.makedirs(ALERT_FOLDER, exist_ok=True)
 
-st.sidebar.title("Controls")
-camera_on = st.sidebar.toggle("Turn Camera On/Off")
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
+@app.route("/detect", methods=["POST"])
+def detect():
+    data = request.json.get("image")
 
-class VideoProcessor(VideoProcessorBase):
-    def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
+    # Decode base64 image
+    image_data = base64.b64decode(data.split(",")[1])
+    np_arr = np.frombuffer(image_data, np.uint8)
+    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-        results = model(img)
-        annotated = results[0].plot()
+    results = model(frame, imgsz=416)
 
-        violation = False
+    annotated = results[0].plot()
 
-        for box in results[0].boxes:
-            class_id = int(box.cls[0])
-            class_name = model.names[class_id]
+    violation = False
 
-            if class_name in ["NO-Hardhat", "NO-Safety Vest", "NO-Mask"]:
-                violation = True
+    for box in results[0].boxes:
+        class_id = int(box.cls[0])
+        class_name = model.names[class_id]
 
-        if violation:
-            cv2.putText(
-                annotated,
-                "⚠ SAFETY VIOLATION DETECTED",
-                (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 0, 255),
-                3
-            )
+        if class_name in ["NO-Hardhat", "NO-Safety Vest", "NO-Mask"]:
+            violation = True
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_path = os.path.join(ALERT_FOLDER, f"violation_{timestamp}.jpg")
-            cv2.imwrite(file_path, annotated)
+    if violation:
+        cv2.putText(
+            annotated,
+            "SAFETY VIOLATION DETECTED",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 255),
+            3
+        )
 
-        return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_path = os.path.join(ALERT_FOLDER, f"violation_{timestamp}.jpg")
+        cv2.imwrite(file_path, annotated)
 
-if camera_on:
-    webrtc_streamer(
-        key="ppe-monitor",
-        video_processor_factory=VideoProcessor,
-        rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video": True, "audio": False},
-    )
+    # Encode image back to base64
+    _, buffer = cv2.imencode(".jpg", annotated)
+    encoded_image = base64.b64encode(buffer).decode("utf-8")
 
-st.subheader("🚨 Recent Safety Violations")
+    return jsonify({"image": encoded_image, "violation": violation})
 
-alert_images = sorted(
-    [os.path.join(ALERT_FOLDER, f) for f in os.listdir(ALERT_FOLDER)],
-    reverse=True
-)
-
-if alert_images:
-    for img in alert_images[:5]:
-        st.image(img, use_column_width=True)
-else:
-    st.info("No safety violations detected yet.")
+if __name__ == "__main__":
+    app.run(debug=True)
