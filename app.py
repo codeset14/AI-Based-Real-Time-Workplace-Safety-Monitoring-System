@@ -3,11 +3,29 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 import os
+import json
 import base64
 from datetime import datetime
 
 app = Flask(__name__)
 
+# Load config from file
+def load_config():
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"alert_threshold": 1}  # Default
+
+# Save config to file
+def save_config(config):
+    with open('config.json', 'w') as f:
+        json.dump(config, f)
+
+# Global config and counter
+config = load_config()
+alert_threshold = config.get("alert_threshold", 1)
+consecutive_violations = 0  # Tracks consecutive violation frames
 # Load YOLO model once
 model = YOLO("best.pt")
 
@@ -21,6 +39,7 @@ def index():
 
 @app.route("/detect", methods=["POST"])
 def detect():
+    global consecutive_violations, alert_threshold
     data = request.json.get("image")
 
     # Decode base64 image
@@ -41,7 +60,16 @@ def detect():
         if class_name in ["NO-Hardhat", "NO-Safety Vest", "NO-Mask"]:
             violation = True
 
+    # Update consecutive counter
     if violation:
+        consecutive_violations += 1
+    else:
+        consecutive_violations = 0
+
+    # Only alert if threshold reached
+    should_alert = consecutive_violations >= alert_threshold
+
+    if should_alert:
         cv2.putText(
             annotated,
             "SAFETY VIOLATION DETECTED",
@@ -60,7 +88,24 @@ def detect():
     _, buffer = cv2.imencode(".jpg", annotated)
     encoded_image = base64.b64encode(buffer).decode("utf-8")
 
-    return jsonify({"image": encoded_image, "violation": violation})
+    return jsonify({"image": encoded_image, "violation": should_alert, "consecutive": consecutive_violations})
 
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    global alert_threshold, config
+    if request.method == "POST":
+        try:
+            new_threshold = int(request.json.get("alert_threshold"))
+            if not (1 <= new_threshold <= 10):
+                return jsonify({"error": "Threshold must be between 1 and 10"}), 400
+            config["alert_threshold"] = new_threshold
+            alert_threshold = new_threshold
+            save_config(config)
+            return jsonify({"message": "Threshold updated successfully"})
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid input: must be a number"}), 400
+    else:
+        return jsonify({"alert_threshold": alert_threshold})
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
