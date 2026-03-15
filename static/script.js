@@ -5,6 +5,16 @@ let alertBox = document.getElementById("alert-box");
 let stream;
 let interval;
 
+// function startCamera() {
+//     navigator.mediaDevices.getUserMedia({ video: true })
+//         .then(s => {
+//             stream = s;
+//             video.srcObject = stream;
+
+//             interval = setInterval(captureFrame, 1000); // 1 frame per second
+//         });
+// }
+
 function startCamera() {
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(s => {
