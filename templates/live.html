@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Detection - AI Workplace Safety Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">🛡️ AI Safety Monitor</h1>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/live" class="active">Live Detection</a></li>
+                <li><a href="/upload">Upload Image</a></li>
+                <li><a href="/results">Results</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📹 Real-Time PPE Detection</h1>
+        <p>Continuous monitoring of workplace safety equipment compliance</p>
+
+        <div class="live-container">
+            <video id="video" autoplay></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <img id="output" />
+        </div>
+
+        <div class="controls">
+            <button onclick="startCamera()" class="btn">Start Camera</button>
+            <button onclick="stopCamera()" class="btn">Stop Camera</button>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <h2>⚙️ System Configuration</h2>
+        <div class="settings">
+            <label for="threshold">Violation Alert Threshold (consecutive frames):</label>
+            <input type="number" id="threshold" min="1" max="10" value="1">
+            <button onclick="saveSettings()" class="btn">Update Settings</button>
+            <p id="status"></p>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

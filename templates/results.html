@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - AI Workplace Safety Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">🛡️ AI Safety Monitor</h1>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/live">Live Detection</a></li>
+                <li><a href="/upload">Upload Image</a></li>
+                <li><a href="/results" class="active">Results</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📊 Safety Detection Reports</h1>
+        <p>Historical analysis of PPE compliance and safety violations</p>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search by image name, status, or detected equipment...">
+        </div>
+
+        <table id="resultsTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Image Name</th>
+                    <th>Detected PPE</th>
+                    <th>Safety Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>{{ result.timestamp }}</td>
+                    <td>{{ result.image_name }}</td>
+                    <td>
+                        {% for item in result.detected_objects %}
+                        <span class="ppe-item">{{ item }}</span>
+                        {% endfor %}
+                    </td>
+                    <td><span class="badge {{ 'safe' if result.status == 'Safe' else 'unsafe' }}">{{ result.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#resultsTable tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

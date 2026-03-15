@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Image - AI Workplace Safety Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">🛡️ AI Safety Monitor</h1>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/live">Live Detection</a></li>
+                <li><a href="/upload" class="active">Upload Image</a></li>
+                <li><a href="/results">Results</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📤 Image-Based PPE Analysis</h1>
+        <p>Upload workplace images for comprehensive safety equipment detection</p>
+
+        <div class="upload-section">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file" accept="image/*" required>
+                <button type="submit" class="btn">Analyze Image</button>
+            </form>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('/upload_detect', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('result').innerHTML = '<p class="error">' + data.error + '</p>';
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <p><strong>Analysis Result:</strong> <span class="${data.status === 'Safe' ? 'safe' : 'unsafe'}">${data.status}</span></p>
+                        <p><strong>Detected Equipment:</strong> ${data.detected.join(', ')}</p>
+                    `;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
