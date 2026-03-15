@@ -11,6 +11,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change this to a random secret key
 
 # Load config from file
 def load_config():
@@ -31,7 +32,12 @@ alert_threshold = config.get("alert_threshold", 1)
 consecutive_violations = 0  # Tracks consecutive violation frames
 
 # Load YOLO model once
-model = YOLO("best.pt")
+try:
+    model = YOLO("best.pt")
+    print("YOLO model loaded successfully.")
+except Exception as e:
+    print(f"Error loading YOLO model: {e}")
+    model = None
 
 # Folder for violation images (existing)
 ALERT_FOLDER = "result"
@@ -70,6 +76,8 @@ def results():
 
 @app.route("/detect", methods=["POST"])
 def detect():
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
     global consecutive_violations, alert_threshold, detection_results
     data = request.json.get("image")
 
@@ -222,6 +230,8 @@ def serve_recording(filename):
 
 @app.route("/video_detect", methods=["POST"])
 def video_detect():
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
     """
     Accept an uploaded video, save it, spawn a background thread
     to run frame-by-frame YOLO detection, and return a task_id
@@ -282,6 +292,11 @@ def video_status(task_id):
 # ─────────────────────────────────────────────────────────────────
 
 def _process_video(task_id, video_path, timestamp_str):
+    if model is None:
+        task = video_tasks[task_id]
+        task["error"] = "Model not loaded"
+        task["done"] = True
+        return
     """
     Run YOLO on every frame.
     Save each violation frame as a .jpg into the recording folder.
@@ -300,10 +315,11 @@ def _process_video(task_id, video_path, timestamp_str):
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps          = cap.get(cv2.CAP_PROP_FPS) or 25
 
-        task["total_frames"] = total_frames
+        task["total_frames"] = (total_frames // 41) + 1
         task["stage"]        = "Running YOLO detection…"
 
         frame_idx        = 0
+        processed_count  = 0
         violation_count  = 0
         violation_images = []   # filenames only, served via /recording/<name>
         all_objects_seen = set()
@@ -312,6 +328,10 @@ def _process_video(task_id, video_path, timestamp_str):
             ret, frame = cap.read()
             if not ret:
                 break
+
+            if frame_idx % 41 != 0:
+                frame_idx += 1
+                continue
 
             results      = model(frame, imgsz=416, verbose=False)
             annotated    = results[0].plot()
@@ -359,20 +379,21 @@ def _process_video(task_id, video_path, timestamp_str):
                     "detected_objects": list(set(detected_objects)),
                 })
 
+            processed_count += 1
             frame_idx += 1
 
-            # Update progress every 15 frames
-            if frame_idx % 15 == 0 or frame_idx == total_frames:
-                pct = int((frame_idx / max(total_frames, 1)) * 95)  # cap at 95 until done
+            # Update progress every processed frame
+            if processed_count % 1 == 0 or frame_idx >= total_frames:
+                pct = int((processed_count / max(task["total_frames"], 1)) * 95)  # cap at 95 until done
                 task["progress"]         = pct
-                task["processed_frames"] = frame_idx
+                task["processed_frames"] = processed_count
                 task["violation_frames"] = violation_count
                 task["violation_images"] = violation_images
 
         cap.release()
 
         task["progress"]         = 100
-        task["processed_frames"] = frame_idx
+        task["processed_frames"] = processed_count
         task["violation_frames"] = violation_count
         task["violation_images"] = violation_images
         task["stage"]            = "Complete!"
@@ -393,4 +414,8 @@ def _process_video(task_id, video_path, timestamp_str):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    try:
+        print("Starting Flask app...")
+        app.run(host="0.0.0.0", port=5000, debug=True)
+    except Exception as e:
+        print(f"Error starting app: {e}")

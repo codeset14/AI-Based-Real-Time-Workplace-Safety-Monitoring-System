@@ -40,13 +40,47 @@ The trained model detects:
 
 🔴 NO-Mask
 
-👷 Person
+## Installation
 
-When a violation is detected:
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd AI-Based-Real-Time-Workplace-Safety-Monitoring-System
+   ```
 
-⚠ Real-time alert is displayed
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-📦 Bounding boxes highlight non-compliant workers
+3. Run the application:
+   ```bash
+   python application.py
+   ```
+
+4. Open your browser and go to `http://localhost:5000`
+
+## Features
+
+- Real-time PPE detection via webcam
+- Image upload for offline analysis
+- Video upload for batch processing
+- Historical reports and violation tracking
+- Responsive web interface
+
+## Usage
+
+- **Live Detection**: Start real-time monitoring
+- **Upload Image**: Analyze static images
+- **Video Analysis**: Process video files for violations
+- **Results**: View historical data
+
+## Technologies Used
+
+- Flask (Web Framework)
+- YOLOv8 (Object Detection)
+- OpenCV (Computer Vision)
+- HTML/CSS/JavaScript (Frontend)
 
 📸 Violation frames are saved for audit purposes
 

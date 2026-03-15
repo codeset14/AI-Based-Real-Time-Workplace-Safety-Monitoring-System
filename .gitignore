@@ -1,3 +1,9 @@
 ppe
 css-data
 yolov8n.pt
+result/
+recording/
+__pycache__/
+*.pyc
+.env
+.DS_Store
