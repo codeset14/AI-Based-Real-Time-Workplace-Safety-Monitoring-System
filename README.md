@@ -94,7 +94,7 @@ PyTorch – Deep Learning Framework
 
 OpenCV – Real-Time Video Processing
 
-Streamlit – Interactive Web Dashboard
+HTML/CSS/JavaScript – Interactive Web Dashboard
 
 Python – Backend Implementation
 
@@ -127,7 +127,7 @@ HackNova/
 ├── workplace/
 ├── best.pt
 ├── live_ppe.py
-├── app.py
+├── application.py
 └── README.md
 🔮 Future Enhancements
 
