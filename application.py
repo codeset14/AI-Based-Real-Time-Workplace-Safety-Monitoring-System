@@ -207,8 +207,8 @@ def settings():
     if request.method == "POST":
         try:
             new_threshold = int(request.json.get("alert_threshold"))
-            if not (1 <= new_threshold <= 10):
-                return jsonify({"error": "Threshold must be between 1 and 10"}), 400
+            if not (1 <= new_threshold <= 30):
+                return jsonify({"error": "Threshold must be between 1 and 30"}), 400
             config["alert_threshold"] = new_threshold
             alert_threshold = new_threshold
             save_config(config)
