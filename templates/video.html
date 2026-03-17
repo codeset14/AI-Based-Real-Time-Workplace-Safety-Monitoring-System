@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Video Detection | HackNova PPE</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .page-header {
       text-align: center;
@@ -275,7 +276,7 @@
   <div class="container">
     <header class="hero">
       <h1>🎥 Video PPE Analysis</h1>
-      <p>Process entire video files to detect PPE violations across all frames, with evidence saved for thorough analysis.</p>
+      <p class="description-text">Process entire video files to detect PPE violations across all frames, with evidence saved for thorough analysis.</p>
     </header>
 
     <div id="alertBanner" class="alert-banner"></div>
@@ -337,6 +338,19 @@
         <div class="stat-card safe">
           <div class="stat-val" id="statSafe">0</div>
           <div class="stat-label">Safe Frames</div>
+        </div>
+      </div>
+
+      <div id="chartSection" style="display:none; margin-bottom:1.5rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start;">
+          <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:12px;">
+            <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#0f172a;">Weekly Violation Trend</h3>
+            <canvas id="trendChart" width="380" height="250"></canvas>
+          </div>
+          <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:12px;">
+            <h3 style="font-size:1rem;margin-bottom:0.5rem;color:#0f172a;">Worker Safety Scores</h3>
+            <canvas id="workerScoreChart" width="380" height="250"></canvas>
+          </div>
         </div>
       </div>
 
@@ -510,9 +524,89 @@
       const msg = vf > 0
         ? `Detection complete — ${vf} violation frame(s) saved to recording/ folder.`
         : 'Detection complete — no violations found. ✅';
+      document.getElementById('chartSection').style.display = 'block';
+      fetchTrendData();
       showAlert(msg, vf > 0 ? 'error' : 'success');
       detectBtn.disabled = false;
     }
+
+    let trendChart = null;
+    let workerScoreChart = null;
+
+    function fetchTrendData() {
+      fetch('/trend_data')
+        .then(response => response.json())
+        .then(data => {
+          const trend = data.trend || [];
+          const scores = data.scores || [];
+          const labels = trend.map(item => item.day);
+          const safeData = trend.map(item => item.safe);
+          const unsafeData = trend.map(item => item.unsafe);
+
+          const ctxTrend = document.getElementById('trendChart').getContext('2d');
+          if (trendChart) trendChart.destroy();
+          trendChart = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: 'Safe Frames',
+                  data: safeData,
+                  borderColor: '#22c55e',
+                  backgroundColor: 'rgba(34,197,94,0.2)',
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: 4,
+                },
+                {
+                  label: 'Violation Frames',
+                  data: unsafeData,
+                  borderColor: '#ef4444',
+                  backgroundColor: 'rgba(239,68,68,0.2)',
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: 4,
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                x: { title: { display: true, text: 'Day of Week' } },
+                y: { title: { display: true, text: 'Count' }, beginAtZero: true }
+              }
+            }
+          });
+
+          const workerLabels = scores.map(item => item.worker);
+          const workerScores = scores.map(item => item.score);
+          const ctxWorker = document.getElementById('workerScoreChart').getContext('2d');
+          if (workerScoreChart) workerScoreChart.destroy();
+          workerScoreChart = new Chart(ctxWorker, {
+            type: 'bar',
+            data: {
+              labels: workerLabels,
+              datasets: [{
+                label: 'Safety %',
+                data: workerScores,
+                backgroundColor: workerScores.map(v => v >= 80 ? '#22c55e' : '#f59e0b'),
+                borderColor: '#1e3a8a',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Score (%)' } }
+              }
+            }
+          });
+        })
+        .catch(err => console.error('Trend load error', err));
+    }
+
+    setInterval(fetchTrendData, 5000);
 
     /* ── Lightbox ── */
     function openLightbox(src, caption) {

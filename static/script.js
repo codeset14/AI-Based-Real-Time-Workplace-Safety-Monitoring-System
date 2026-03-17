@@ -4,6 +4,39 @@ let output = document.getElementById("output");
 let alertBox = document.getElementById("alert-box");
 let stream;
 let interval;
+let violationBeepInterval = null;
+let audioCtx = null;
+
+function playBeep() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.15);
+}
+
+function startViolationBeep() {
+    if (violationBeepInterval !== null) return;
+    playBeep();
+    violationBeepInterval = setInterval(playBeep, 2000);
+}
+
+function stopViolationBeep() {
+    if (violationBeepInterval !== null) {
+        clearInterval(violationBeepInterval);
+        violationBeepInterval = null;
+    }
+}
 
 // function startCamera() {
 //     navigator.mediaDevices.getUserMedia({ video: true })
@@ -27,6 +60,7 @@ function startCamera() {
 
 function stopCamera() {
     clearInterval(interval);
+    stopViolationBeep();
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
     }
@@ -54,10 +88,12 @@ function captureFrame() {
         if (data.violation) {
             alertBox.innerHTML = "⚠ SAFETY VIOLATION DETECTED (Consecutive: " + data.consecutive + ")";
             alertBox.className = "alert";
+            startViolationBeep();
         } else {
             alertBox.innerHTML = "All Workers Safe (Consecutive: " + data.consecutive + ")";
             alertBox.className = "safe";
-}
+            stopViolationBeep();
+        }
     });
 }
 

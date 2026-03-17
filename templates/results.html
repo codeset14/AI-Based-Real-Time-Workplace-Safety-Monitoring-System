@@ -8,6 +8,59 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css?v=1">
+    <style>
+        .clickable-row { cursor: pointer; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 4% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 8px;
+        }
+        .close-modal {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .recording-preview {
+            width: 100%;
+            max-height: 60vh;
+            object-fit: contain;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .recording-timestamps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .recording-thumb {
+            width: 80px;
+            height: 50px;
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 4px;
+        }
+        .recording-thumb.active {
+            border-color: #007bff;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -25,7 +78,7 @@
 
     <div class="container">
         <h1>📊 Safety Detection Reports</h1>
-        <p>Review comprehensive safety reports, track violation trends, and access historical data for improved workplace safety.</p>
+        <p class="description-text">Review comprehensive safety reports, track violation trends, and access historical data for improved workplace safety.</p>
 
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Search by image name, status, or detected equipment...">
@@ -42,7 +95,7 @@
             </thead>
             <tbody>
                 {% for result in results %}
-                <tr>
+                <tr class="clickable-row" data-image-name="{{ result.image_name }}" data-recording-images='{{ result.recording_images|tojson | safe }}'>
                     <td>{{ result.timestamp }}</td>
                     <td>{{ result.image_name }}</td>
                     <td>
@@ -57,13 +110,132 @@
         </table>
     </div>
 
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="modalClose">&times;</span>
+            <h2 id="modalTitle">Recording Images</h2>
+            <div id="modalImageWrapper">
+                <img id="modalImage" class="recording-preview" src="" alt="Recording image" />
+            </div>
+            <div id="recordingThumbnails" class="recording-timestamps"></div>
+        </div>
+    </div>
+
     <script>
-        document.getElementById('searchInput').addEventListener('input', function() {
+        const modal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('modalTitle');
+        const thumbnails = document.getElementById('recordingThumbnails');
+        const modalClose = document.getElementById('modalClose');
+
+        let currentImages = [];
+        let currentIndex = 0;
+
+        function makeRecordingUrl(name) {
+            return `/images/${encodeURIComponent(name)}`;
+        }
+
+        function clearModal() {
+            modalImage.src = '';
+            modalTitle.textContent = 'Recording Images';
+            thumbnails.innerHTML = '';
+            currentImages = [];
+            currentIndex = 0;
+        }
+
+        function setModalImage(index) {
+            if (!currentImages.length) return;
+            currentIndex = ((index % currentImages.length) + currentImages.length) % currentImages.length;
+            const selectedFile = currentImages[currentIndex];
+            modalImage.src = makeRecordingUrl(selectedFile);
+            document.querySelectorAll('.recording-thumb').forEach((t, i) => {
+                t.classList.toggle('active', i === currentIndex);
+            });
+        }
+
+        function showModal(images, label) {
+            clearModal();
+            if (!images || images.length === 0) {
+                modalTitle.textContent = 'No recording images found';
+                modalImage.style.display = 'none';
+            } else {
+                currentImages = images;
+                modalTitle.textContent = `Recording images from: ${label}`;
+                modalImage.style.display = 'block';
+                thumbnails.innerHTML = '';
+                modalOpen = true;
+
+                images.forEach((filename, idx) => {
+                    const thumb = document.createElement('img');
+                    thumb.className = 'recording-thumb' + (idx === 0 ? ' active' : '');
+                    thumb.src = makeRecordingUrl(filename);
+                    thumb.title = filename;
+                    thumb.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                        setModalImage(idx);
+                    });
+                    thumbnails.appendChild(thumb);
+                });
+
+                setModalImage(0);
+            }
+            modal.style.display = 'block';
+        }
+
+        let modalOpen = false;
+
+        function closeModal() {
+            modal.style.display = 'none';
+            modalOpen = false;
+        }
+
+        modalClose.addEventListener('click', closeModal);
+
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (!modalOpen) return;
+
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                setModalImage(currentIndex + 1);
+            } else if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                setModalImage(currentIndex - 1);
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                closeModal();
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('input', function () {
             const filter = this.value.toLowerCase();
             const rows = document.querySelectorAll('#resultsTable tbody tr');
             rows.forEach(row => {
                 const text = row.textContent.toLowerCase();
                 row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        });
+
+        document.querySelectorAll('#resultsTable tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                const imageName = row.dataset.imageName;
+                let recordings = [];
+                try {
+                    recordings = JSON.parse(row.dataset.recordingImages || '[]');
+                } catch (error) {
+                    recordings = [];
+                }
+
+                if (recordings.length === 0 && imageName) {
+                    recordings = [imageName];
+                }
+
+                showModal(recordings, imageName || 'recording');
             });
         });
     </script>

@@ -25,7 +25,7 @@
 
     <div class="container">
         <h1>📹 Real-Time PPE Detection</h1>
-        <p>Real-time AI-powered surveillance for instant PPE compliance checks and automated violation alerts.</p>
+        <p class="description-text">Real-time AI-powered surveillance for instant PPE compliance checks and automated violation alerts.</p>
 
         <div class="live-container">
             <video id="video" autoplay></video>
@@ -36,6 +36,7 @@
         <div class="controls">
             <button onclick="startCamera()" class="btn">Start Camera</button>
             <button onclick="stopCamera()" class="btn">Stop Camera</button>
+            <button onclick="window.location.href='/results'" class="btn">View Results</button>
         </div>
 
         <div id="alert-box"></div>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, abort
 from ultralytics import YOLO
 import cv2
 import numpy as np
@@ -7,7 +7,7 @@ import json
 import base64
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -121,16 +121,19 @@ def detect():
             3
         )
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = os.path.join(ALERT_FOLDER, f"violation_{timestamp}.jpg")
-        cv2.imwrite(file_path, annotated)
+    # Save every live annotated frame to results folder for browsing
+    result_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    live_image_name = f"live_{result_timestamp}.jpg"
+    cv2.imwrite(os.path.join(ALERT_FOLDER, live_image_name), annotated)
 
-    # Store result
+    # Store result (worker can be extended later using facial or metadata mapping)
     result = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "image_name": f"live_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg",
+        "image_name": live_image_name,
         "detected_objects": detected_objects,
-        "status": "Unsafe" if violation else "Safe"
+        "status": "Unsafe" if violation else "Safe",
+        "recording_images": [live_image_name],
+        "worker": "Operator 1"
     }
     detection_results.append(result)
 
@@ -181,15 +184,18 @@ def upload_detect():
             )
 
         # Save annotated image
-        annotated_path = os.path.join(ALERT_FOLDER, f"annotated_{filename}")
+        annotated_filename = f"annotated_{filename}"
+        annotated_path = os.path.join(ALERT_FOLDER, annotated_filename)
         cv2.imwrite(annotated_path, annotated)
 
         # Store result
         result = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "image_name": filename,
+            "image_name": annotated_filename,
             "detected_objects": detected_objects,
-            "status": "Unsafe" if violation else "Safe"
+            "status": "Unsafe" if violation else "Safe",
+            "recording_images": [annotated_filename],
+            "worker": "Operator 1"
         }
         detection_results.append(result)
 
@@ -217,6 +223,54 @@ def settings():
 #  VIDEO DETECTION ROUTES (new)
 # ─────────────────────────────────────────────────────────────────
 
+@app.route("/trend_data")
+def trend_data():
+    """Return weekly violations and per-worker safety score stats."""
+
+    today = datetime.now().date()
+    days = [(today - timedelta(days=i)) for i in range(6, -1, -1)]
+
+    daily_safe = {d: 0 for d in days}
+    daily_unsafe = {d: 0 for d in days}
+    worker_stats = {}
+
+    for r in detection_results:
+        try:
+            dt = datetime.strptime(r.get('timestamp', ''), '%Y-%m-%d %H:%M:%S').date()
+        except Exception:
+            continue
+
+        status = r.get('status', 'Safe')
+        worker = r.get('worker', 'Unknown')
+
+        if dt in daily_safe:
+            if status == 'Safe':
+                daily_safe[dt] += 1
+            else:
+                daily_unsafe[dt] += 1
+
+        if worker not in worker_stats:
+            worker_stats[worker] = {'safe': 0, 'unsafe': 0}
+
+        if status == 'Safe':
+            worker_stats[worker]['safe'] += 1
+        else:
+            worker_stats[worker]['unsafe'] += 1
+
+    trend = [
+        {'day': d.strftime('%a'), 'safe': daily_safe[d], 'unsafe': daily_unsafe[d]}
+        for d in days
+    ]
+
+    scores = []
+    for worker, counts in worker_stats.items():
+        total = counts['safe'] + counts['unsafe']
+        score = (counts['safe'] / total * 100) if total > 0 else 100
+        scores.append({'worker': worker, 'safe': counts['safe'], 'unsafe': counts['unsafe'], 'score': round(score, 1)})
+
+    return jsonify({'trend': trend, 'scores': scores})
+
+
 @app.route("/video")
 def video():
     return render_template("video.html")
@@ -226,6 +280,19 @@ def video():
 def serve_recording(filename):
     """Serve saved violation frame images from the recording folder."""
     return send_from_directory(RECORDING_FOLDER, filename)
+
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    """Serve images from recording OR result directories."""
+    recording_path = os.path.join(RECORDING_FOLDER, filename)
+    result_path = os.path.join(ALERT_FOLDER, filename)
+    if os.path.exists(recording_path):
+        return send_from_directory(RECORDING_FOLDER, filename)
+    elif os.path.exists(result_path):
+        return send_from_directory(ALERT_FOLDER, filename)
+    else:
+        abort(404)
 
 
 @app.route("/video_detect", methods=["POST"])
@@ -406,6 +473,8 @@ def _process_video(task_id, video_path, timestamp_str):
             "image_name":      os.path.basename(video_path),
             "detected_objects": list(all_objects_seen),
             "status":          "Unsafe" if violation_count > 0 else "Safe",
+            "recording_images": [img["filename"] for img in violation_images],
+            "worker":          "Operator 1"
         })
 
     except Exception as e:
