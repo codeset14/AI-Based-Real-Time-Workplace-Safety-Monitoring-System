@@ -62,11 +62,17 @@ The trained model detects:
 
 ## Features
 
-- Real-time PPE detection via webcam
-- Image upload for offline analysis
-- Video upload for batch processing
-- Historical reports and violation tracking
-- Responsive web interface
+- Live real-time PPE detection via webcam with violation highlighting
+- Live detection includes 2-second repeating beep on safety violation, auto-stop on camera stop
+- Image upload analysis with safe/unsafe classification and annotated evidence image saving
+- Video upload analysis with background processing, progress status, and evidence frame capture
+- Results tab with searchable report table including timestamps, status, and detected objects
+- Clicking on a result opens modal with stored images (recording/result folder) and keyboard arrow navigation (←/→/Esc)
+- New trend dashboard in Video tab showing weekly violations and per-worker safety score charts (Chart.js)
+- REST endpoint `/trend_data` for live-updating chart data from in-memory detection results
+- Per-worker safety score computation + weekly safe/unsafe trend updates every 5 seconds
+- Auto-serving images from `recording/` and `result/` via `/recording/<filename>` and `/images/<filename>` endpoints
+
 
 ## Usage
 
